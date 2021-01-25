@@ -64,11 +64,14 @@ class Controller:
         self.fr_right = 0.0
 
         # Encoder
-        en_pin_left = Pin(EN_LEFT, Pin.IN)
-        en_pin_right = Pin(EN_RIGHT, Pin.IN)
+        self.en_pin_left = Pin(EN_LEFT, Pin.IN)
+        self.en_pin_right = Pin(EN_RIGHT, Pin.IN)
 
-        self.en_left = Encoder(ros, "left", en_pin_left)
-        self.en_right = Encoder(ros, "right", en_pin_right)
+        self.en_left = Encoder(ros, "left", self.en_pin_left)
+        self.en_right = Encoder(ros, "right", self.en_pin_right)
+
+        self.en_pin_left.irq(handler=self.irq_en, trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING)
+        self.en_pin_right.irq(self.irq_en, Pin.IRQ_FALLING | Pin.IRQ_RISING)
 
         # Encoder samples
         self.prev_count_left = 0
@@ -76,10 +79,17 @@ class Controller:
         self.prev_ms = time.ticks_ms()
 
         # Timer to poll encoders
-        self.en_poll_timer = Timer(0)
-        self.en_poll_timer.init(period=10,
-                                mode=Timer.PERIODIC,
-                                callback=self.irq_poll_en)
+        # self.en_poll_timer = Timer(0)
+        # self.en_poll_timer.init(period=10,
+        #                         mode=Timer.PERIODIC,
+        #                         callback=self.irq_poll_en)
+
+    ###########################################################################
+    def irq_en(self, en_pin):
+        if en_pin == self.en_pin_left:
+            self.en_left.count += 1
+        elif en_pin == self.en_pin_right:
+            self.en_right.count += 1
 
     ###########################################################################
     def irq_poll_en(self, timer):
