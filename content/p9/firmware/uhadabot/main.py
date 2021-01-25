@@ -142,6 +142,8 @@ class Controller:
             # FR pin hi and 'reverse' pwm to go backwards
             fr_pin.on()
             pwm_pin.duty(1023 - int(1023 * (-1*factor)))
+            # pwm_pin.duty(1023 - int(1023 * (-1*factor)))
+            pwm_pin.duty(int(-1023 * factor))
 
     ###########################################################################
     def right_wheel_cb(self, wheel_power):
