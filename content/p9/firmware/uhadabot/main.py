@@ -17,9 +17,8 @@ M_RIGHT_PWM = 14
 M_LEFT_FR = 13
 M_RIGHT_FR = 15
 
-EN_LEFT = 16
-EN_RIGHT = 17
-
+EN_LEFT = 15
+EN_RIGHT = 4
 
 ###############################################################################
 class Encoder:
