@@ -11,11 +11,12 @@ logger = logging.getLogger(__name__)
 
 BUILTIN_LED = 2
 
-
-M_LEFT_PWM = 12
-M_RIGHT_PWM = 14
-M_LEFT_FR = 13
-M_RIGHT_FR = 15
+M_LEFT_PWM = 14
+M_LEFT_FR1 = 27
+M_LEFT_FR2 = 26
+M_RIGHT_FR1 = 25
+M_RIGHT_FR2 = 33
+M_RIGHT_PWM = 32
 
 EN_LEFT = 15
 EN_RIGHT = 4
@@ -51,13 +52,17 @@ class Controller:
         self.pwm_pin_left = PWM(Pin(M_LEFT_PWM))
         self.pwm_pin_right = PWM(Pin(M_RIGHT_PWM))
 
-        self.fr_pin_left = Pin(M_LEFT_FR, Pin.OUT)
-        self.fr_pin_right = Pin(M_RIGHT_FR, Pin.OUT)
+        self.fr_pin_left1 = Pin(M_LEFT_FR1, Pin.OUT)
+        self.fr_pin_left2 = Pin(M_LEFT_FR2, Pin.OUT)
+        self.fr_pin_right1 = Pin(M_RIGHT_FR1, Pin.OUT)
+        self.fr_pin_right2 = Pin(M_RIGHT_FR2, Pin.OUT)
 
         self.pwm_pin_left.duty(0)
         self.pwm_pin_right.duty(0)
-        self.fr_pin_left.off()
-        self.fr_pin_right.off()
+        self.fr_pin_left1.off()
+        self.fr_pin_left2.off()
+        self.fr_pin_right1.off()
+        self.fr_pin_right2.off()
 
         # Motor direction (fwd == 1.0, reverse == -1.0, stop == 0.0)
         self.fr_left = 0.0
@@ -100,7 +105,7 @@ class Controller:
                 en.prev_pin_val = val
 
     ###########################################################################
-    def turn_wheel(self, wheel_power_f32, pwm_pin, fr_pin, prev_direction):
+    def turn_wheel(self, wheel_power_f32, pwm_pin, fr_pin1, fr_pin2, prev_direction):
         factor = max(min(wheel_power_f32, 1.0), -1.0)
 
         # The Hadabot wheels actually don't turn well below 0.5, so let's
@@ -114,41 +119,42 @@ class Controller:
         dir_change_sleep_ms = 50
         if prev_direction * factor == 0:
             if factor > 0:
-                self._send_motor_signal(0.8, pwm_pin, fr_pin)
+                self._send_motor_signal(0.8, pwm_pin, fr_pin1, fr_pin2)
                 time.sleep_ms(dir_change_sleep_ms)
             elif factor < 0:
-                self._send_motor_signal(-0.8, pwm_pin, fr_pin)
+                self._send_motor_signal(-0.8, pwm_pin, fr_pin1, fr_pin2)
                 time.sleep_ms(dir_change_sleep_ms)
         elif prev_direction * factor < 0:
             # Changing direction - stop motor first
-            self._send_motor_signal(0.0, pwm_pin, fr_pin)
+            self._send_motor_signal(0.0, pwm_pin, fr_pin1, fr_pin2)
             time.sleep_ms(dir_change_sleep_ms)
 
             # Then overdrive in the opposite direction from
             # the previous direction
-            self._send_motor_signal(-0.8 * prev_direction, pwm_pin, fr_pin)
+            self._send_motor_signal(-0.8 * prev_direction, pwm_pin, fr_pin1, fr_pin2)
             time.sleep_ms(dir_change_sleep_ms)
 
         # Send command
-        self._send_motor_signal(factor, pwm_pin, fr_pin)
+        self._send_motor_signal(factor, pwm_pin, fr_pin1, fr_pin2)
     ###########################################################################
 
-    def _send_motor_signal(self, factor, pwm_pin, fr_pin):
+    def _send_motor_signal(self, factor, pwm_pin, fr_pin1, fr_pin2):
         if factor >= 0:
             # FR pin lo to go forward
-            fr_pin.off()
+            fr_pin1.on()
+            fr_pin2.off()
             pwm_pin.duty(int(1023 * factor))
         else:
             # FR pin hi and 'reverse' pwm to go backwards
-            fr_pin.on()
-            pwm_pin.duty(1023 - int(1023 * (-1*factor)))
+            fr_pin1.off()
+            fr_pin2.on()
             # pwm_pin.duty(1023 - int(1023 * (-1*factor)))
             pwm_pin.duty(int(-1023 * factor))
 
     ###########################################################################
     def right_wheel_cb(self, wheel_power):
         self.turn_wheel(
-            wheel_power["data"], self.pwm_pin_right, self.fr_pin_right,
+            wheel_power["data"], self.pwm_pin_right, self.fr_pin_right1, self.fr_pin_right2,
             self.fr_right)
         self.fr_right = -1.0 if wheel_power["data"] < 0.0 else 0.0
         self.fr_right = 1.0 if wheel_power["data"] > 0.0 else self.fr_right
@@ -156,7 +162,7 @@ class Controller:
     ###########################################################################
     def left_wheel_cb(self, wheel_power):
         self.turn_wheel(
-            wheel_power["data"], self.pwm_pin_left, self.fr_pin_left,
+            wheel_power["data"], self.pwm_pin_left, self.fr_pin_left1, self.fr_pin_left2,
             self.fr_left)
         self.fr_left = -1.0 if wheel_power["data"] < 0.0 else 0.0
         self.fr_left = 1.0 if wheel_power["data"] >= 0.0 else self.fr_left
